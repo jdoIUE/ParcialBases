@@ -29,7 +29,7 @@ IF NOT EXISTS (SELECT * FROM  sysindexes
 	CREATE UNIQUE INDEX ixPais_Pais
 		ON Pais(Pais)
 ELSE
-	PRINT 'Ya existe el Ìndice [ixPais_Pais]'
+	PRINT 'Ya existe el √≠ndice [ixPais_Pais]'
 
 --Crear la tabla FASE
 IF NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS
@@ -47,7 +47,7 @@ IF NOT EXISTS (SELECT * FROM  sysindexes
 	CREATE UNIQUE INDEX ixFase_Fase
 		ON Fase(Fase)
 ELSE
-	PRINT 'Ya existe el Ìndice [ixFase_Fase]'
+	PRINT 'Ya existe el √≠ndice [ixFase_Fase]'
 
 --Crear tabla CIUDAD
 IF NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS
@@ -67,7 +67,7 @@ IF NOT EXISTS (SELECT * FROM  sysindexes
 	CREATE UNIQUE INDEX ixCiudad_Ciudad
 		ON Ciudad(IdPais, Ciudad)
 ELSE
-	PRINT 'Ya existe el Ìndice [ixCiudad_Ciudad]'
+	PRINT 'Ya existe el √≠ndice [ixCiudad_Ciudad]'
 
 --Crear tabla ESTADIO
 IF NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS
@@ -89,7 +89,7 @@ IF NOT EXISTS (SELECT * FROM  sysindexes
 	CREATE UNIQUE INDEX ixEstadio_Estadio
 		ON Estadio(Estadio)
 ELSE
-	PRINT 'Ya existe el Ìndice [ixEstadio_Estadio]'
+	PRINT 'Ya existe el √≠ndice [ixEstadio_Estadio]'
 
 --Crear tabla CAMPEONATO
 IF NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS
@@ -101,7 +101,7 @@ IF NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS
 		IdPais int NOT NULL, 
 		CONSTRAINT fkCampeonato_IdPais FOREIGN KEY (IdPais) REFERENCES Pais (Id),
 		PaisesXGrupo int DEFAULT(4) NOT NULL,
-		AÒo int NOT NULL,
+		A√±o int NOT NULL,
 		Logo image NULL
 		)
 ELSE
@@ -113,7 +113,7 @@ IF NOT EXISTS (SELECT * FROM  sysindexes
 	CREATE UNIQUE INDEX ixCampeonato_Campeonato
 		ON Campeonato(Campeonato)
 ELSE
-	PRINT 'Ya existe el Ìndice [ixCampeonato_Campeonato]'
+	PRINT 'Ya existe el √≠ndice [ixCampeonato_Campeonato]'
 
 --Crear tabla GRUPO
 IF NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS
@@ -135,7 +135,7 @@ IF NOT EXISTS (SELECT * FROM  sysindexes
 	CREATE UNIQUE INDEX ixGrupo_Grupo
 		ON Grupo(IdCampeonato, Grupo)
 ELSE
-	PRINT 'Ya existe el Ìndice [ixGrupo_Grupo]'
+	PRINT 'Ya existe el √≠ndice [ixGrupo_Grupo]'
 
 --Crear tabla GRUPOPAIS
 IF NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS
@@ -181,7 +181,7 @@ IF NOT EXISTS (SELECT * FROM  sysindexes
 	CREATE UNIQUE INDEX ixEncuentro_Encuentro
 		ON Encuentro(IdCampeonato, IdFase, IdPais1, IdPais2)
 ELSE
-	PRINT 'Ya existe el Ìndice [ixEncuentro_Encuentro]'
+	PRINT 'Ya existe el √≠ndice [ixEncuentro_Encuentro]'
 
 --Crear tabla USUARIO
 IF NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS
@@ -203,4 +203,34 @@ IF NOT EXISTS (SELECT * FROM  sysindexes
 	CREATE UNIQUE INDEX ixUsuario_Usuario
 		ON Usuario(Usuario)
 ELSE
-	PRINT 'Ya existe el Ìndice [ixUsuario_Usuario]'
+
+	PRINT 'Ya existe el √≠ndice [ixUsuario_Usuario]'
+
+CREATE TRIGGER trg_EvitarPartidoDuplicado
+ON Encuentro
+INSTEAD OF INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Insertar solo los que no est√°n duplicados (independientemente del orden de los pa√≠ses)
+    INSERT INTO Encuentro (IdPais1, IdPais2, IdFase, IdCampeonato, IdEstadio, Fecha, Goles1, Goles2, Penalties1, Penalties2)
+    SELECT i.IdPais1, i.IdPais2, i.IdFase, i.IdCampeonato, i.IdEstadio, i.Fecha, i.Goles1, i.Goles2, i.Penalties1, i.Penalties2
+    FROM INSERTED i
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM Encuentro e
+        WHERE e.IdCampeonato = i.IdCampeonato
+          AND e.IdFase = i.IdFase
+          AND (
+               (e.IdPais1 = i.IdPais1 AND e.IdPais2 = i.IdPais2) OR
+               (e.IdPais1 = i.IdPais2 AND e.IdPais2 = i.IdPais1)
+          )
+    );
+
+    IF @@ROWCOUNT = 0
+    BEGIN
+        RAISERROR ('El partido ya est√° registrado en esta fase y campeonato.', 16, 1);
+    END
+END;
+GO
